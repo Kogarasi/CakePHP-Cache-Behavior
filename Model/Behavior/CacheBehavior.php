@@ -6,6 +6,8 @@ class CacheBehavior extends ModelBehavior
 
 	private $cache_enabled = false;
 	private $stop_recursive = false;
+	
+	private $_defaultConfig = 'default';
 
 	public function setup( Model $model, $settings = array() )
 	{
@@ -33,7 +35,7 @@ class CacheBehavior extends ModelBehavior
 		// キーを生成
 		$key_name = $this->createCacheKey( $model, $method, $args );
 		// キャッシュから読み込み
-		$cache_retval = Cache::read( $key_name );
+		$cache_retval = Cache::read( $key_name, $this->getConfig( $model ) );
 
 		$value_exists = !empty( $cache_retval );
 
@@ -51,14 +53,14 @@ class CacheBehavior extends ModelBehavior
 			$this->stop_recursive = false;
 
 			// キャッシュへ書き込み
-			Cache::write( $key_name, $func_retval );
+			Cache::write( $key_name, $func_retval, $this->getConfig( $model ) );
 
 			// キャッシュ削除用のリストを生成
 			$list_key_name = $this->createCacheListKey( $model );
-			$list = Cache::read( $list_key_name );
+			$list = Cache::read( $list_key_name , $this->getConfig( $model ) );
 
 			$list[] = $key_name;
-			Cache::write( $list_key_name, $list );
+			Cache::write( $list_key_name, $list , $this->getConfig( $model ) );
 
 			return $func_retval;
 		}
@@ -118,14 +120,26 @@ class CacheBehavior extends ModelBehavior
 	{
 		$list_key = $this->createCacheListKey( $model );
 
-		$list = Cache::read( $list_key );
+		$list = Cache::read( $list_key, $this->getConfig( $model ) );
 
 		if( empty( $list ) ) return;
 
 		foreach( $list as $value )
 		{
-			Cache::delete( $value );
+			Cache::delete( $value, $this->getConfig( $model ) );
 		}
-		Cache::delete( $list_key );
+		Cache::delete( $list_key, $this->getConfig( $model ) );
+	}
+
+	public function getConfig( Model $model )
+	{
+		if( property_exists( $model, 'cacheConfig' ) )
+		{
+			return $model->cacheConfig;
+		}
+		else
+		{
+			return $this->_defaultConfig;
+		}
 	}
 }
